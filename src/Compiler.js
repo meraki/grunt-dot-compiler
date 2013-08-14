@@ -14,6 +14,7 @@ var grunt = require('grunt')
  */
 
 var Compiler = function(opt) {
+  var _this = this;
   this.opt = _.defaults(opt || {}, {
     variable  : 'tmpl',
     node      : false,
