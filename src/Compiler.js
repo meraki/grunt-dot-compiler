@@ -13,6 +13,7 @@ var grunt = require('grunt')
  */
 
 var Compiler = function(opt) {
+  var _this = this;
   this.opt = _.defaults(opt || {}, {
     variable  : 'tmpl',
     node      : false,
@@ -20,8 +21,14 @@ var Compiler = function(opt) {
     requirejs : false,
     key       : function(filepath) {
       return path.basename(filepath, path.extname(filepath));
+    },
+    dirKeys      : function(filepath) {
+      filepath = filepath.slice(_this.opt.root.length, filepath.length);
+      var arr = filepath.split(path.sep);
+      arr.pop();
+      return arr;
     }
-  });
+  })
   this.opt.variable = opt.variable.replace('window.', '');
   if(this.opt.root.substr(-1) !== '/') {
     this.opt.root += '/';
@@ -182,13 +189,25 @@ Compiler.prototype.compileTemplates = function(files) {
   js += '};' + grunt.util.linefeed;
   js += 'String.prototype.encodeHTML=encodeHTMLSource();' + grunt.util.linefeed;
 
-  js += 'var tmpl = {};' + grunt.util.linefeed;
+
+  var tmpl = {};
+  _.each(files, function(filePath) {
+    var keys = _this.opt.dirKeys(filePath);
+    var working_obj = tmpl;
+    _.each(keys, function(key) {
+      working_obj[key] = working_obj[key] || {};
+      working_obj = working_obj[key];
+    });
+  });
+  js += 'var tmpl = ' + JSON.stringify(tmpl) + ';' + grunt.util.linefeed;
 
   files.map(function(filePath) {
     var template = _this.getFileContent(filePath)
       , fn       = doT.template(template)
+      , keys     = _this.opt.dirKeys(filePath)
       , key      = _this.opt.key(filePath);
-    js += '  tmpl' + "['" + key + "']=" + fn + ';' + grunt.util.linefeed;
+    keys.push(key);
+    js += "  tmpl['" + keys.join("']['") + "']=" + fn + ';' + grunt.util.linefeed;
   });
 
   if(!this.opt.requirejs && !this.opt.node) {
